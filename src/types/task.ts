@@ -10,3 +10,9 @@ export interface Section {
   title: string;
   tasks: Task[];
 }
+
+export interface DailyGoal {
+  id: string;
+  text: string;
+  completed: boolean;
+}
