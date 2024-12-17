@@ -169,28 +169,36 @@ class ZipHandler(FileSystemEventHandler):
             self.spinner.stop("Processing git operations...")
             git_dir = os.path.join(self.extract_path, '.git')
             
-            # Initialize git commands
-            git_commands = [
-                ['git', 'add', '.'],
-                ['git', 'commit', '-m', f'Update from zip at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}'],
-                ['git', 'push', '-f', 'origin', 'main']  # Added -f flag for force push
-            ]
+            # First time setup if .git doesn't exist
+            if not os.path.exists(git_dir):
+                commands = [
+                    ['git', 'init'],
+                    ['git', 'remote', 'add', 'origin', f'git@github.com:jalil0seth/{PROJECT_NAME}.git'],
+                    ['git', 'branch', '-M', 'main'],
+                    ['git', 'add', '.'],
+                    ['git', 'commit', '-m', "first push"],
+                    ['git', 'push', '-u', 'origin', 'main']
+                ]
+            else:
+                # Regular push for existing repository
+                commands = [
+                    ['git', 'add', '.'],
+                    ['git', 'commit', '-m', f'v{self.current_version}'],
+                    ['git', 'push', '-f']
+                ]
             
-            # Execute git commands
-            for cmd in git_commands:
+            # Execute commands
+            for cmd in commands:
                 result = subprocess.run(cmd, cwd=self.extract_path, capture_output=True, text=True)
                 if result.returncode != 0 and 'nothing to commit' not in result.stderr:
-                    error_msg = result.stderr.strip()
-                    if 'Repository not found' in error_msg:
-                        self.spinner.stop("Remote repository not found. Please create it first.")
-                    else:
-                        self.spinner.stop(f"Failed to execute git command: {error_msg}")
+                    self.spinner.stop(f"Git command failed: {' '.join(cmd)}")
                     return False
             
-            self.spinner.stop("Successfully pushed changes")
+            self.spinner.stop("Git operations completed successfully")
             return True
+            
         except Exception as e:
-            self.spinner.stop(f"Failed to handle git operations: {str(e)}")
+            self.spinner.stop(f"Git error: {str(e)}")
             return False
 
     def _update_current_version(self):
