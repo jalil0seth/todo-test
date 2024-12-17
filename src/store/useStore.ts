@@ -1,168 +1,181 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { initialSections } from '../data/initialData';
-import { Section, Task, DailyGoal } from '../types/task';
-import { generateId, updateTasksRecursively, filterTasksRecursively } from './utils';
+import { Section, Task } from '../types/task';
+import { generateId } from './utils';
 
 interface StoreState {
-  sections: Section[];
-  pinnedSections: string[];
-  dailyGoals: DailyGoal[];
+  documents: Section[];
+  pinnedDocuments: string[];
+  selectedDocument: string | null;
   editingTaskId: string | null;
-  audioPlaying: boolean;
-  audioVolume: number;
   actions: {
+    // Document actions
+    createDocument: () => void;
+    updateDocument: (documentId: string, updates: Partial<Section>) => void;
+    deleteDocument: (documentId: string) => void;
+    togglePinDocument: (documentId: string) => void;
+    selectDocument: (documentId: string) => void;
+    
     // Task actions
-    toggleTask: (taskId: string) => void;
-    updateTaskText: (taskId: string, newText: string) => void;
-    addTask: (sectionId: string, parentTaskId?: string) => string;
-    deleteTask: (sectionId: string, taskId: string) => void;
+    toggleTask: (documentId: string, taskId: string) => void;
+    updateTaskText: (documentId: string, taskId: string, newText: string) => void;
+    addTask: (documentId: string, parentTaskId?: string) => void;
+    deleteTask: (documentId: string, taskId: string) => void;
     setEditingTaskId: (taskId: string | null) => void;
-    
-    // Section actions
-    addSection: () => string;
-    updateSectionTitle: (sectionId: string, newTitle: string) => void;
-    deleteSection: (sectionId: string) => void;
-    togglePinSection: (sectionId: string) => void;
-    
-    // Goal actions
-    addDailyGoal: (goal: string) => void;
-    toggleDailyGoal: (goalId: string) => void;
-    deleteDailyGoal: (goalId: string) => void;
-    
-    // Audio actions
-    setAudioPlaying: (playing: boolean) => void;
-    setAudioVolume: (volume: number) => void;
   };
 }
+
+const updateTasksRecursively = (tasks: Task[], taskId: string, updater: (task: Task) => Task): Task[] => {
+  return tasks.map(task => {
+    if (task.id === taskId) {
+      return updater(task);
+    }
+    if (task.children) {
+      return {
+        ...task,
+        children: updateTasksRecursively(task.children, taskId, updater),
+      };
+    }
+    return task;
+  });
+};
+
+const filterTasksRecursively = (tasks: Task[], taskId: string): Task[] => {
+  return tasks
+    .filter(task => task.id !== taskId)
+    .map(task => ({
+      ...task,
+      children: task.children ? filterTasksRecursively(task.children, taskId) : undefined,
+    }));
+};
 
 export const useStore = create<StoreState>()(
   persist(
     (set) => ({
-      sections: initialSections,
-      pinnedSections: [],
-      dailyGoals: [],
+      documents: initialSections,
+      pinnedDocuments: [],
+      selectedDocument: null,
       editingTaskId: null,
-      audioPlaying: false,
-      audioVolume: 0.5,
       actions: {
-        // Task actions
-        toggleTask: (taskId) =>
-          set((state) => ({
-            sections: state.sections.map((section) => ({
-              ...section,
-              tasks: updateTasksRecursively(section.tasks, taskId, (task) => ({
-                ...task,
-                completed: !task.completed,
-              })),
-            })),
-          })),
-
-        updateTaskText: (taskId, newText) =>
-          set((state) => ({
-            sections: state.sections.map((section) => ({
-              ...section,
-              tasks: updateTasksRecursively(section.tasks, taskId, (task) => ({
-                ...task,
-                text: newText,
-              })),
-            })),
-          })),
-
-        addTask: (sectionId, parentTaskId) => {
+        createDocument: () => {
           const newId = generateId();
           set((state) => ({
-            sections: state.sections.map((section) => {
-              if (section.id !== sectionId) return section;
+            documents: [
+              ...state.documents,
+              {
+                id: newId,
+                title: 'Untitled Document',
+                tasks: [],
+                tags: [],
+              },
+            ],
+            selectedDocument: newId,
+          }));
+        },
+
+        updateDocument: (documentId, updates) =>
+          set((state) => ({
+            documents: state.documents.map((doc) =>
+              doc.id === documentId ? { ...doc, ...updates } : doc
+            ),
+          })),
+
+        deleteDocument: (documentId) =>
+          set((state) => ({
+            documents: state.documents.filter((doc) => doc.id !== documentId),
+            pinnedDocuments: state.pinnedDocuments.filter((id) => id !== documentId),
+            selectedDocument:
+              state.selectedDocument === documentId ? null : state.selectedDocument,
+          })),
+
+        togglePinDocument: (documentId) =>
+          set((state) => ({
+            pinnedDocuments: state.pinnedDocuments.includes(documentId)
+              ? state.pinnedDocuments.filter((id) => id !== documentId)
+              : [...state.pinnedDocuments, documentId],
+          })),
+
+        selectDocument: (documentId) =>
+          set({ selectedDocument: documentId }),
+
+        toggleTask: (documentId, taskId) =>
+          set((state) => ({
+            documents: state.documents.map((doc) =>
+              doc.id === documentId
+                ? {
+                    ...doc,
+                    tasks: updateTasksRecursively(doc.tasks, taskId, (task) => ({
+                      ...task,
+                      completed: !task.completed,
+                    })),
+                  }
+                : doc
+            ),
+          })),
+
+        updateTaskText: (documentId, taskId, newText) =>
+          set((state) => ({
+            documents: state.documents.map((doc) =>
+              doc.id === documentId
+                ? {
+                    ...doc,
+                    tasks: updateTasksRecursively(doc.tasks, taskId, (task) => ({
+                      ...task,
+                      text: newText,
+                    })),
+                  }
+                : doc
+            ),
+          })),
+
+        addTask: (documentId, parentTaskId) => {
+          const newTask: Task = {
+            id: generateId(),
+            text: 'New Task',
+            completed: false,
+          };
+
+          set((state) => ({
+            documents: state.documents.map((doc) => {
+              if (doc.id !== documentId) return doc;
+
               if (!parentTaskId) {
                 return {
-                  ...section,
-                  tasks: [...section.tasks, { id: newId, text: 'New Task', completed: false }],
+                  ...doc,
+                  tasks: [...doc.tasks, newTask],
                 };
               }
+
               return {
-                ...section,
-                tasks: updateTasksRecursively(section.tasks, parentTaskId, (task) => ({
+                ...doc,
+                tasks: updateTasksRecursively(doc.tasks, parentTaskId, (task) => ({
                   ...task,
-                  children: [...(task.children || []), { id: newId, text: 'New Task', completed: false }],
+                  children: [...(task.children || []), newTask],
                 })),
               };
             }),
           }));
-          return newId;
         },
 
-        deleteTask: (sectionId, taskId) =>
+        deleteTask: (documentId, taskId) =>
           set((state) => ({
-            sections: state.sections.map((section) => {
-              if (section.id !== sectionId) return section;
-              return {
-                ...section,
-                tasks: filterTasksRecursively(section.tasks, taskId),
-              };
-            }),
+            documents: state.documents.map((doc) =>
+              doc.id === documentId
+                ? {
+                    ...doc,
+                    tasks: filterTasksRecursively(doc.tasks, taskId),
+                  }
+                : doc
+            ),
           })),
 
         setEditingTaskId: (taskId) =>
           set({ editingTaskId: taskId }),
-
-        // Section actions
-        addSection: () => {
-          const newId = generateId();
-          set((state) => ({
-            sections: [...state.sections, { id: newId, title: 'New Section', tasks: [] }],
-          }));
-          return newId;
-        },
-
-        updateSectionTitle: (sectionId, newTitle) =>
-          set((state) => ({
-            sections: state.sections.map((section) =>
-              section.id === sectionId ? { ...section, title: newTitle } : section
-            ),
-          })),
-
-        deleteSection: (sectionId) =>
-          set((state) => ({
-            sections: state.sections.filter((section) => section.id !== sectionId),
-            pinnedSections: state.pinnedSections.filter((id) => id !== sectionId),
-          })),
-
-        togglePinSection: (sectionId) =>
-          set((state) => ({
-            pinnedSections: state.pinnedSections.includes(sectionId)
-              ? state.pinnedSections.filter((id) => id !== sectionId)
-              : [...state.pinnedSections, sectionId],
-          })),
-
-        // Goal actions
-        addDailyGoal: (goal) =>
-          set((state) => ({
-            dailyGoals: [...state.dailyGoals, { id: generateId(), text: goal, completed: false }],
-          })),
-
-        toggleDailyGoal: (goalId) =>
-          set((state) => ({
-            dailyGoals: state.dailyGoals.map((goal) =>
-              goal.id === goalId ? { ...goal, completed: !goal.completed } : goal
-            ),
-          })),
-
-        deleteDailyGoal: (goalId) =>
-          set((state) => ({
-            dailyGoals: state.dailyGoals.filter((goal) => goal.id !== goalId),
-          })),
-
-        // Audio actions
-        setAudioPlaying: (playing) =>
-          set({ audioPlaying: playing }),
-
-        setAudioVolume: (volume) =>
-          set({ audioVolume: volume }),
       },
     }),
     {
-      name: 'task-manager-storage',
+      name: 'document-manager-storage',
     }
   )
 );

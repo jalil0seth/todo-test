@@ -24,3 +24,4 @@ export const filterTasksRecursively = (tasks: any[], taskId: string) => {
         ? filterTasksRecursively(task.children, taskId)
         : undefined,
     }));
+};

@@ -1,5 +1,6 @@
 import { StateCreator } from 'zustand';
 import { DailyGoal } from '../../types/task';
+import { generateId } from '../utils';
 
 export interface GoalSlice {
   dailyGoals: DailyGoal[];

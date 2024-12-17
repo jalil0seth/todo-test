@@ -1,5 +1,6 @@
 import { StateCreator } from 'zustand';
 import { Task } from '../../types/task';
+import { generateId, updateTasksRecursively, filterTasksRecursively } from '../utils';
 
 export interface TaskSlice {
   editingTaskId: string | null;

@@ -1,61 +1,78 @@
 import React from 'react';
 import { Task } from '../../types/task';
 import { Checkbox } from '../ui/Checkbox';
-import { TaskText } from './TaskText';
 import { Plus, Trash2 } from 'lucide-react';
 
 interface TaskItemProps {
   task: Task;
-  level?: number;
-  onToggle: (taskId: string) => void;
-  onUpdateText: (taskId: string, newText: string) => void;
+  documentId: string;
   editingTaskId: string | null;
-  onStartEdit: (taskId: string) => void;
+  level?: number;
+  onToggle: () => void;
+  onUpdateText: (newText: string) => void;
+  onStartEdit: () => void;
   onStopEdit: () => void;
-  onAddTask: (parentTaskId: string) => void;
-  onDeleteTask: (taskId: string) => void;
+  onAddSubtask: () => void;
+  onDelete: () => void;
 }
 
 export const TaskItem: React.FC<TaskItemProps> = ({
   task,
+  documentId,
+  editingTaskId,
   level = 0,
   onToggle,
   onUpdateText,
-  editingTaskId,
   onStartEdit,
   onStopEdit,
-  onAddTask,
-  onDeleteTask,
+  onAddSubtask,
+  onDelete,
 }) => {
   const paddingLeft = `${level * 1.5}rem`;
 
   return (
     <div>
-      <div className="group flex items-center gap-2 hover:bg-gray-50 rounded p-1" style={{ paddingLeft }}>
-        <Checkbox
-          checked={task.completed}
-          onCheckedChange={() => onToggle(task.id)}
-        />
+      <div
+        className="group flex items-center gap-2 hover:bg-gray-50 rounded p-1"
+        style={{ paddingLeft }}
+      >
+        <Checkbox checked={task.completed} onCheckedChange={onToggle} />
         <div className="flex-1">
-          <TaskText
-            text={task.text}
-            completed={task.completed}
-            isEditing={editingTaskId === task.id}
-            onEdit={(newText) => onUpdateText(task.id, newText)}
-            onStartEdit={() => onStartEdit(task.id)}
-            onStopEdit={onStopEdit}
-          />
+          {editingTaskId === task.id ? (
+            <input
+              type="text"
+              value={task.text}
+              onChange={(e) => onUpdateText(e.target.value)}
+              onBlur={onStopEdit}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') onStopEdit();
+                if (e.key === 'Escape') {
+                  onUpdateText(task.text);
+                  onStopEdit();
+                }
+              }}
+              className="w-full p-1 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+              autoFocus
+            />
+          ) : (
+            <span
+              className={`${task.completed ? 'line-through text-gray-400' : ''}`}
+              onDoubleClick={onStartEdit}
+            >
+              {task.text}
+            </span>
+          )}
         </div>
         <div className="opacity-0 group-hover:opacity-100 flex gap-1">
           <button
-            onClick={() => onAddTask(task.id)}
+            onClick={onAddSubtask}
             className="p-1 hover:bg-gray-200 rounded"
             title="Add Subtask"
           >
             <Plus className="w-4 h-4 text-green-600" />
           </button>
           <button
-            onClick={() => onDeleteTask(task.id)}
+            onClick={onDelete}
             className="p-1 hover:bg-gray-200 rounded"
             title="Delete Task"
           >
@@ -67,14 +84,15 @@ export const TaskItem: React.FC<TaskItemProps> = ({
         <TaskItem
           key={childTask.id}
           task={childTask}
-          level={level + 1}
-          onToggle={onToggle}
-          onUpdateText={onUpdateText}
+          documentId={documentId}
           editingTaskId={editingTaskId}
+          level={level + 1}
+          onToggle={() => onToggle()}
+          onUpdateText={onUpdateText}
           onStartEdit={onStartEdit}
           onStopEdit={onStopEdit}
-          onAddTask={onAddTask}
-          onDeleteTask={onDeleteTask}
+          onAddSubtask={onAddSubtask}
+          onDelete={onDelete}
         />
       ))}
     </div>

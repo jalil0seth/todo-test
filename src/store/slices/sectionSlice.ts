@@ -1,6 +1,7 @@
 import { StateCreator } from 'zustand';
 import { Section } from '../../types/task';
 import { initialSections } from '../../data/initialData';
+import { generateId } from '../utils';
 
 export interface SectionSlice {
   sections: Section[];
@@ -10,6 +11,7 @@ export interface SectionSlice {
     updateSectionTitle: (sectionId: string, newTitle: string) => void;
     deleteSection: (sectionId: string) => void;
     togglePinSection: (sectionId: string) => void;
+    updateSectionTags: (sectionId: string, tags: string[]) => void;
   };
 }
 
@@ -22,7 +24,12 @@ export const createSectionSlice: StateCreator<SectionSlice & any> = (set) => ({
       set((state) => ({
         sections: [
           ...state.sections,
-          { id: newId, title: 'New Section', tasks: [] },
+          { 
+            id: newId, 
+            title: 'New Document', 
+            tasks: [],
+            tags: [] 
+          },
         ],
       }));
       return newId;
@@ -48,6 +55,15 @@ export const createSectionSlice: StateCreator<SectionSlice & any> = (set) => ({
         pinnedSections: state.pinnedSections.includes(sectionId)
           ? state.pinnedSections.filter((id) => id !== sectionId)
           : [...state.pinnedSections, sectionId],
+      })),
+
+    updateSectionTags: (sectionId, tags) =>
+      set((state) => ({
+        sections: state.sections.map((section) =>
+          section.id === sectionId
+            ? { ...section, tags }
+            : section
+        ),
       })),
   },
 });
