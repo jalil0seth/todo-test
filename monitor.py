@@ -184,14 +184,15 @@ class ZipHandler(FileSystemEventHandler):
                 commands = [
                     ['git', 'add', '.'],
                     ['git', 'commit', '-m', f'v{self.current_version}'],
-                    ['git', 'push', '-f']
+                    ['git', 'push', '-f', 'origin', 'main']  # Fixed: added origin main
                 ]
             
             # Execute commands
             for cmd in commands:
                 result = subprocess.run(cmd, cwd=self.extract_path, capture_output=True, text=True)
                 if result.returncode != 0 and 'nothing to commit' not in result.stderr:
-                    self.spinner.stop(f"Git command failed: {' '.join(cmd)}")
+                    error_msg = result.stderr.strip()
+                    self.spinner.stop(f"Git command failed: {error_msg}")
                     return False
             
             self.spinner.stop("Git operations completed successfully")
