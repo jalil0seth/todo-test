@@ -1,0 +1,52 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+/* Markdown Styles */
+.prose {
+  @apply text-gray-900;
+}
+
+.prose p {
+  @apply my-0;
+}
+
+.prose ul {
+  @apply my-0 pl-4;
+}
+
+.prose ol {
+  @apply my-0 pl-4;
+}
+
+.prose code {
+  @apply px-1 py-0.5 bg-gray-100 rounded text-sm;
+}
+
+.prose pre {
+  @apply p-2 bg-gray-100 rounded;
+}
+
+.prose blockquote {
+  @apply pl-4 border-l-4 border-gray-200 italic;
+}
+
+.prose strong {
+  @apply font-semibold;
+}
+
+.prose em {
+  @apply italic;
+}
