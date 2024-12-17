@@ -92,18 +92,24 @@ class ZipHandler(FileSystemEventHandler):
         return path.endswith('.zip')
 
     def archive_zip(self, src_path):
-        filename = os.path.basename(src_path)
-        if not filename.startswith(PROJECT_NAME):
-            # Ensure archive directory exists
+        try:
+            # Create archive directory if it doesn't exist
             os.makedirs(self.archive_path, exist_ok=True)
             
-            version = self.current_version + 1
-            archived_name = f"{PROJECT_NAME}-v{version}.zip"
+            # Generate new version number
+            self.current_version += 1
+            
+            # Create new archive name
+            archived_name = f"{PROJECT_NAME}-v{self.current_version}.zip"
             archived_path = os.path.join(self.archive_path, archived_name)
-            shutil.copy2(src_path, archived_path)
-            self.current_version = version
+            
+            # Move and rename the zip file
+            shutil.move(src_path, archived_path)
+            
             return archived_path
-        return None
+        except Exception as e:
+            self.spinner.stop(f"Failed to archive zip: {str(e)}")
+            return None
 
     def extract_zip(self, zip_path):
         try:
@@ -225,29 +231,25 @@ class ZipHandler(FileSystemEventHandler):
         if not self.is_zip_file(event.src_path):
             return
             
-        if event.src_path == self.last_processed_zip:
-            return
+        try:
+            self.spinner.stop(f"New zip detected: {os.path.basename(event.src_path)}")
             
-        self.last_processed_zip = event.src_path
-        
-        # Wait a bit to ensure the file is completely written
-        time.sleep(1)
-        
-        self.spinner.stop(f"New zip detected: {os.path.basename(event.src_path)}")
-        
-        # Archive the zip
-        archived_path = self.archive_zip(event.src_path)
-        if archived_path:
+            # Process the zip file
             self.spinner.stop("Processing zip file...")
-            
-            # Extract the zip
             if self.extract_zip(event.src_path):
-                self.spinner.stop(f"Files extracted and archived as {os.path.basename(archived_path)}")
+                # Archive the zip file
+                archived_path = self.archive_zip(event.src_path)
+                if archived_path:
+                    self.spinner.stop(f"Files extracted and archived as {os.path.basename(archived_path)}")
+                    # Handle git operations
+                    self.handle_git()
+                else:
+                    self.spinner.stop("Failed to archive zip file")
+            else:
+                self.spinner.stop("Failed to extract zip file")
                 
-                # Handle git operations
-                self.handle_git()
-            
-        self.spinner.start()
+        except Exception as e:
+            self.spinner.stop(f"Error processing zip: {str(e)}")
 
 def main():
     # Setup paths
