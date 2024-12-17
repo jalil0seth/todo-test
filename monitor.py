@@ -174,9 +174,9 @@ class ZipHandler(FileSystemEventHandler):
                 commands = [
                     ['git', 'init'],
                     ['git', 'remote', 'add', 'origin', f'git@github.com:jalil0seth/{PROJECT_NAME}.git'],
-                    ['git', 'branch', '-M', 'main'],
                     ['git', 'add', '.'],
                     ['git', 'commit', '-m', "first push"],
+                    ['git', 'branch', '-M', 'main'],
                     ['git', 'push', '-u', 'origin', 'main']
                 ]
             else:
@@ -184,7 +184,8 @@ class ZipHandler(FileSystemEventHandler):
                 commands = [
                     ['git', 'add', '.'],
                     ['git', 'commit', '-m', f'v{self.current_version}'],
-                    ['git', 'push', '-f', 'origin', 'main']  # Fixed: added origin main
+                    ['git', 'branch', '-M', 'main'],  # Ensure we're on main branch
+                    ['git', 'push', '-f', 'origin', 'main']
                 ]
             
             # Execute commands
@@ -192,6 +193,8 @@ class ZipHandler(FileSystemEventHandler):
                 result = subprocess.run(cmd, cwd=self.extract_path, capture_output=True, text=True)
                 if result.returncode != 0 and 'nothing to commit' not in result.stderr:
                     error_msg = result.stderr.strip()
+                    if 'nothing to commit' in error_msg:
+                        continue
                     self.spinner.stop(f"Git command failed: {error_msg}")
                     return False
             
