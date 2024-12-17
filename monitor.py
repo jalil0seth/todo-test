@@ -180,6 +180,10 @@ class ZipHandler(FileSystemEventHandler):
                 # First time setup
                 subprocess.run(['git', 'init'], cwd=self.extract_path, capture_output=True)
             
+            # Configure Git user if not set
+            subprocess.run(['git', 'config', 'user.email', 'jalil0seth@gmail.com'], cwd=self.extract_path, capture_output=True)
+            subprocess.run(['git', 'config', 'user.name', 'jalil0seth'], cwd=self.extract_path, capture_output=True)
+            
             # Check if remote exists
             remote_exists = subprocess.run(['git', 'remote'], cwd=self.extract_path, capture_output=True, text=True)
             if 'origin' in remote_exists.stdout:
@@ -189,29 +193,34 @@ class ZipHandler(FileSystemEventHandler):
             subprocess.run(['git', 'remote', 'add', 'origin', f'git@github.com:jalil0seth/{PROJECT_NAME}.git'], 
                          cwd=self.extract_path, capture_output=True)
             
-            # Stage and commit changes
+            # Stage changes
             subprocess.run(['git', 'add', '.'], cwd=self.extract_path, capture_output=True)
-            commit_result = subprocess.run(['git', 'commit', '-m', f'v{self.current_version}'], 
+            
+            # Check if this is initial commit
+            is_initial = subprocess.run(['git', 'rev-parse', 'HEAD'], cwd=self.extract_path, capture_output=True).returncode != 0
+            
+            # Commit changes
+            commit_msg = "Initial commit" if is_initial else f'v{self.current_version}'
+            commit_result = subprocess.run(['git', 'commit', '-m', commit_msg], 
                                         cwd=self.extract_path, capture_output=True, text=True)
             
-            # Only proceed with push if there were changes to commit
-            if commit_result.returncode == 0 or 'nothing to commit' in commit_result.stderr:
-                # Ensure we're on main branch
-                subprocess.run(['git', 'branch', '-M', 'main'], cwd=self.extract_path, capture_output=True)
-                
-                # Push changes
-                push_result = subprocess.run(['git', 'push', '-f', 'origin', 'main'], 
-                                          cwd=self.extract_path, capture_output=True, text=True)
-                
-                if push_result.returncode != 0:
-                    self.spinner.stop(f"Push failed: {push_result.stderr}")
-                    return False
-                
-                self.spinner.stop("Git operations completed successfully")
-                return True
-            else:
+            if commit_result.returncode != 0 and 'nothing to commit' not in commit_result.stderr:
                 self.spinner.stop(f"Commit failed: {commit_result.stderr}")
                 return False
+            
+            # Ensure we're on main branch
+            subprocess.run(['git', 'branch', '-M', 'main'], cwd=self.extract_path, capture_output=True)
+            
+            # Push changes
+            push_result = subprocess.run(['git', 'push', '-f', 'origin', 'main'], 
+                                      cwd=self.extract_path, capture_output=True, text=True)
+            
+            if push_result.returncode != 0:
+                self.spinner.stop(f"Push failed: {push_result.stderr}")
+                return False
+            
+            self.spinner.stop("Git operations completed successfully")
+            return True
             
         except Exception as e:
             self.spinner.stop(f"Git error: {str(e)}")
