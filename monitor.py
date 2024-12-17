@@ -169,37 +169,43 @@ class ZipHandler(FileSystemEventHandler):
             self.spinner.stop("Processing git operations...")
             git_dir = os.path.join(self.extract_path, '.git')
             
-            # First time setup if .git doesn't exist
+            # Check if git is initialized
             if not os.path.exists(git_dir):
-                commands = [
-                    ['git', 'init'],
-                    ['git', 'remote', 'add', 'origin', f'git@github.com:jalil0seth/{PROJECT_NAME}.git'],
-                    ['git', 'add', '.'],
-                    ['git', 'commit', '-m', "first push"],
-                    ['git', 'branch', '-M', 'main'],
-                    ['git', 'push', '-u', 'origin', 'main']
-                ]
-            else:
-                # Regular push for existing repository
-                commands = [
-                    ['git', 'add', '.'],
-                    ['git', 'commit', '-m', f'v{self.current_version}'],
-                    ['git', 'branch', '-M', 'main'],  # Ensure we're on main branch
-                    ['git', 'push', '-f', 'origin', 'main']
-                ]
+                # First time setup
+                subprocess.run(['git', 'init'], cwd=self.extract_path, capture_output=True)
             
-            # Execute commands
-            for cmd in commands:
-                result = subprocess.run(cmd, cwd=self.extract_path, capture_output=True, text=True)
-                if result.returncode != 0 and 'nothing to commit' not in result.stderr:
-                    error_msg = result.stderr.strip()
-                    if 'nothing to commit' in error_msg:
-                        continue
-                    self.spinner.stop(f"Git command failed: {error_msg}")
+            # Check if remote exists
+            remote_exists = subprocess.run(['git', 'remote'], cwd=self.extract_path, capture_output=True, text=True)
+            if 'origin' in remote_exists.stdout:
+                subprocess.run(['git', 'remote', 'remove', 'origin'], cwd=self.extract_path, capture_output=True)
+            
+            # Add remote
+            subprocess.run(['git', 'remote', 'add', 'origin', f'git@github.com:jalil0seth/{PROJECT_NAME}.git'], 
+                         cwd=self.extract_path, capture_output=True)
+            
+            # Stage and commit changes
+            subprocess.run(['git', 'add', '.'], cwd=self.extract_path, capture_output=True)
+            commit_result = subprocess.run(['git', 'commit', '-m', f'v{self.current_version}'], 
+                                        cwd=self.extract_path, capture_output=True, text=True)
+            
+            # Only proceed with push if there were changes to commit
+            if commit_result.returncode == 0 or 'nothing to commit' in commit_result.stderr:
+                # Ensure we're on main branch
+                subprocess.run(['git', 'branch', '-M', 'main'], cwd=self.extract_path, capture_output=True)
+                
+                # Push changes
+                push_result = subprocess.run(['git', 'push', '-f', 'origin', 'main'], 
+                                          cwd=self.extract_path, capture_output=True, text=True)
+                
+                if push_result.returncode != 0:
+                    self.spinner.stop(f"Push failed: {push_result.stderr}")
                     return False
-            
-            self.spinner.stop("Git operations completed successfully")
-            return True
+                
+                self.spinner.stop("Git operations completed successfully")
+                return True
+            else:
+                self.spinner.stop(f"Commit failed: {commit_result.stderr}")
+                return False
             
         except Exception as e:
             self.spinner.stop(f"Git error: {str(e)}")
