@@ -1,25 +1,25 @@
+export type Priority = 'high' | 'medium' | 'low';
+export type Status = 'backlog' | 'focus' | 'later' | 'completed';
+
+export interface Comment {
+  id: string;
+  text: string;
+  createdAt: Date;
+}
+
 export interface Task {
   id: string;
-  text: string;
-  completed: boolean;
-  children?: Task[];
+  title: string;
+  description: string;
+  priority: Priority;
+  status: Status;
+  subtasks: SubTask[];
+  createdAt: Date;
+  comments: Comment[];
 }
 
-export interface Section {
+export interface SubTask {
   id: string;
   title: string;
-  tasks: Task[];
-  tags?: string[];
-}
-
-export interface DailyGoal {
-  id: string;
-  text: string;
   completed: boolean;
-}
-
-export interface Tag {
-  id: string;
-  name: string;
-  color: string;
 }
